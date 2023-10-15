@@ -1,30 +1,42 @@
+import { useState, useEffect, createContext } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
-import { createContext, useState } from "react";
+import { supabase } from "./supabaseClient";
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
+  const [user, setUser] = useState();
+  const [loading, setLoading] = useState(true);
 
-  const [user, setUser] = useState(null);
+  useEffect(() => {
+    const session = supabase.auth.getSession();
+    setUser(session?.user ?? null);
+    setLoading(false);
 
-  const login = async (email, password) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {});
+  }, []);
+
+  const login = async (credentials) => {
     try {
-      const response = await axios.post(
-        `${process.env.REACT_APP_API_BASE_URL}/login`,
-        { email, password }
-      );
-      console.log("Status Code:", response.status);
-      setUser(response.data.user);
-      navigate("/");
+      const { user, error } = await supabase.auth.signIn({
+        email: credentials.email,
+        password: credentials.password,
+      });
+      if (error) {
+        console.error("ログインエラー:", error);
+      } else {
+        navigate("/");
+      }
     } catch (error) {
       console.error("ログインエラー:", error);
     }
   };
 
-  const logout = () => {
-    setUser(null);
+  const logout = async () => {
+    await supabase.auth.signOut();
   };
 
   return (
@@ -34,4 +46,4 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export default AuthContext;
+export default AuthProvider;
